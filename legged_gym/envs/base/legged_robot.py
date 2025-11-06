@@ -149,6 +149,8 @@ class LeggedRobot(BaseTask):
         self.feet_air_time[env_ids] = 0.
         self.episode_length_buf[env_ids] = 0
         self.reset_buf[env_ids] = 1
+        if self.cfg.commands.curriculum:
+            self.update_command_curriculum(env_ids)
         # fill extras
         self.extras["episode"] = {}
         for key in self.episode_sums.keys():

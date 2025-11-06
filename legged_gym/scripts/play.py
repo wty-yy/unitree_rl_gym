@@ -11,7 +11,6 @@ from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Log
 import numpy as np
 import torch
 
-
 def play(args):
     env_cfg, train_cfg = task_registry.get_cfgs(name=args.task)
     # override some parameters for testing
@@ -41,11 +40,19 @@ def play(args):
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
+
+        if FIX_COMMAND:
+            env.commands[:, 0] = 0
+            env.commands[:, 1] = 0.
+            env.commands[:, 2] = 0.
+            env.commands[:, 3] = 0.
+
         obs, _, rews, dones, infos = env.step(actions.detach())
 
 if __name__ == '__main__':
     EXPORT_POLICY = True
     RECORD_FRAMES = False
     MOVE_CAMERA = False
+    FIX_COMMAND = False
     args = get_args()
     play(args)

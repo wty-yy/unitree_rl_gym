@@ -19,18 +19,46 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'FR_calf_joint': -1.5,  # [rad]
             'RR_calf_joint': -1.5,    # [rad]
         }
+    class env(LeggedRobotCfg.env):
+        num_observations = 45
+        num_privileged_obs = 48
 
-    class control( LeggedRobotCfg.control ):
+    class domain_rand(LeggedRobotCfg.domain_rand):
+        randomize_friction = True
+        friction_range = [0.1, 1.25]
+        randomize_base_mass = True
+        added_mass_range = [-1., 3.]
+        push_robots = True
+        push_interval_s = 5
+        max_push_vel_xy = 1.5
+
+    class control(LeggedRobotCfg.control):
         # PD Drive parameters:
         control_type = 'P'
-        stiffness = {'joint': 20.}  # [N*m/rad]
+        stiffness = {'joint': 20.0}  # [N*m/rad]
         damping = {'joint': 0.5}     # [N*m*s/rad]
         # action scale: target angle = actionScale * action + defaultAngle
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
 
-    class asset( LeggedRobotCfg.asset ):
+    # class commands:
+    #     curriculum = True
+    #     max_curriculum = 1.5
+    #     num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+    #     resampling_time = 10. # time before command are changed[s]
+    #     heading_command = True # if true: compute ang vel command from heading error
+    #     class ranges:
+    #         lin_vel_x = [-1.0, 1.0] # min max [m/s]
+    #         lin_vel_y = [-1.0, 1.0]   # min max [m/s]
+    #         ang_vel_yaw = [-1, 1]    # min max [rad/s]
+    #         heading = [-3.14, 3.14]
+    #         # lin_vel_x = [1.0, 1.0] # min max [m/s]
+    #         # lin_vel_y = [0.0, 0.0]   # min max [m/s]
+    #         # ang_vel_yaw = [0, 0]    # min max [rad/s]
+    #         # heading = [0, 0]
+        
+    class asset(LeggedRobotCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
         name = "go2"
         foot_name = "foot"
@@ -40,10 +68,11 @@ class GO2RoughCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.25
+        base_height_target = 0.34
         class scales( LeggedRobotCfg.rewards.scales ):
             torques = -0.0002
             dof_pos_limits = -10.0
+            feet_air_time = 2.0
 
 class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
