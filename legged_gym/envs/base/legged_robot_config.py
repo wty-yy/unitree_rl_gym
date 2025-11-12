@@ -12,7 +12,7 @@ class LeggedRobotCfg(BaseConfig):
         test = False
 
     class terrain:
-        mesh_type = 'plane' # "heightfield" # none, plane, heightfield or trimesh
+        mesh_type = 'trimesh' # none, plane, heightfield or trimesh
         horizontal_scale = 0.1 # [m]
         vertical_scale = 0.005 # [m]
         border_size = 25 # [m]
@@ -31,9 +31,9 @@ class LeggedRobotCfg(BaseConfig):
         terrain_width = 8.
         num_rows= 10 # number of terrain rows (levels)
         num_cols = 20 # number of terrain cols (types)
-        # terrain types: [smooth slope, rough slope, stairs up, stairs down, discrete]
-        # terrain_proportions = [0.1, 0.1, 0.35, 0.25, 0.2]
-        terrain_proportions = [1.0, 0.0, 0.0, 0.0, 0.0]
+        
+        # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
+        terrain_proportions = [0.1, 0.1, 0.1, 0.2, 0.2, 0.1, 0.1, 0.1, 0.0]
         # trimesh only:
         slope_treshold = 0.75 # slopes above this threshold will be corrected to vertical surfaces
 
@@ -124,6 +124,9 @@ class LeggedRobotCfg(BaseConfig):
         soft_torque_limit = 1.
         base_height_target = 1.
         max_contact_force = 100. # forces above this value are penalized
+        curriculum_rewards = None  # reward names to apply curriculum scaling to, List[dict]
+        # eg: [{'reward_name': 'lin_vel_z', 'start_iter': 0, 'end_iter': 1500, 'start_value': 1.0, 'end_value': 0.0}]
+
 
     class normalization:
         class obs_scales:

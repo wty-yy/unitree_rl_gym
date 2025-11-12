@@ -30,6 +30,9 @@ class Go2Robot(LeggedRobot):
                                   self.dof_vel * self.obs_scales.dof_vel,
                                   self.actions,
                                   ),dim=-1)
+        
+        heights = torch.clip(self.root_states[:, 2].unsqueeze(1) - 0.5 - self.measured_heights, -1, 1.0) * self.obs_scales.height_measurements
+        
         self.privileged_obs_buf = torch.cat((  self.base_lin_vel * self.obs_scales.lin_vel,
                                     self.base_ang_vel  * self.obs_scales.ang_vel,
                                     self.projected_gravity,
@@ -37,6 +40,8 @@ class Go2Robot(LeggedRobot):
                                     (self.dof_pos - self.default_dof_pos) * self.obs_scales.dof_pos,
                                     self.dof_vel * self.obs_scales.dof_vel,
                                     self.actions,
+                                    heights,  # height measurements (187,)
                                     ),dim=-1)
+        
         if self.add_noise:
             self.obs_buf += (2 * torch.rand_like(self.obs_buf) - 1) * self.noise_scale_vec

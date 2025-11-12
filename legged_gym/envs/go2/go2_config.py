@@ -21,7 +21,9 @@ class GO2RoughCfg( LeggedRobotCfg ):
         }
     class env(LeggedRobotCfg.env):
         num_observations = 45
-        num_privileged_obs = 48
+        # obs(45) + base_lin_vel(3) + height_measurements(187)
+        num_privileged_obs = 45 + 3 + 187  # 235
+        # num_privileged_obs = 48  # without height measurements
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
@@ -41,22 +43,23 @@ class GO2RoughCfg( LeggedRobotCfg ):
         action_scale = 0.25
         # decimation: Number of control action updates @ sim DT per policy DT
         decimation = 4
-
-    # class commands:
-    #     curriculum = True
-    #     max_curriculum = 1.5
-    #     num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
-    #     resampling_time = 10. # time before command are changed[s]
-    #     heading_command = True # if true: compute ang vel command from heading error
-    #     class ranges:
-    #         lin_vel_x = [-1.0, 1.0] # min max [m/s]
-    #         lin_vel_y = [-1.0, 1.0]   # min max [m/s]
-    #         ang_vel_yaw = [-1, 1]    # min max [rad/s]
-    #         heading = [-3.14, 3.14]
-    #         # lin_vel_x = [1.0, 1.0] # min max [m/s]
-    #         # lin_vel_y = [0.0, 0.0]   # min max [m/s]
-    #         # ang_vel_yaw = [0, 0]    # min max [rad/s]
-    #         # heading = [0, 0]
+    
+    class terrain(LeggedRobotCfg.terrain):
+        # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
+        terrain_proportions = [0.2, 0.1, 0.1, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0]
+        # terrain_proportions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
+        
+    class commands:
+        curriculum = False
+        max_curriculum = 1.5
+        num_commands = 3 # default: lin_vel_x, lin_vel_y, ang_vel_yaw, heading (in heading mode ang_vel_yaw is recomputed from heading error)
+        resampling_time = 30. # time before command are changed[s]
+        heading_command = False # if true: compute ang vel command from heading error
+        class ranges:
+            lin_vel_x = [-1.0, 1.0] # min max [m/s]
+            lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+            ang_vel_yaw = [-1, 1]    # min max [rad/s]
+            heading = [-3.14, 3.14]
         
     class asset(LeggedRobotCfg.asset):
         file = '{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/urdf/go2.urdf'
@@ -68,8 +71,13 @@ class GO2RoughCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.3
+        base_height_target = 0.35
         only_positive_rewards = False
+        curriculum_rewards = [
+            {'reward_name': 'lin_vel_z', 'start_iter': 0, 'end_iter': 1500, 'start_value': 1.0, 'end_value': 0.0},
+            {'reward_name': 'correct_base_height', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
+            {'reward_name': 'dof_power', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
+        ]
         class scales:
             # tracking_lin_vel = 1.0
             # tracking_ang_vel = 0.2
@@ -79,7 +87,6 @@ class GO2RoughCfg( LeggedRobotCfg ):
             # similar_to_default = -0.1
             # dof_power = -1e-3  # 能够明显抑制跳跃
             # dof_acc = -3e-7
-
 
             tracking_lin_vel = 1.0
             tracking_ang_vel = 0.5
@@ -117,5 +124,5 @@ class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
         experiment_name = 'rough_go2'
-
-  
+        max_iterations = 30000
+        save_interval = 500
