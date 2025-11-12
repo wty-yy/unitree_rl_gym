@@ -86,6 +86,7 @@ class LeggedRobot(BaseTask):
         """
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
+        # self.gym.refresh_rigid_body_state_tensor(self.sim)
 
         self.episode_length_buf += 1
         self.common_step_counter += 1
@@ -429,9 +430,11 @@ class LeggedRobot(BaseTask):
         actor_root_state = self.gym.acquire_actor_root_state_tensor(self.sim)
         dof_state_tensor = self.gym.acquire_dof_state_tensor(self.sim)
         net_contact_forces = self.gym.acquire_net_contact_force_tensor(self.sim)
+        rigid_body_state = self.gym.acquire_rigid_body_state_tensor(self.sim)
         self.gym.refresh_dof_state_tensor(self.sim)
         self.gym.refresh_actor_root_state_tensor(self.sim)
         self.gym.refresh_net_contact_force_tensor(self.sim)
+        self.gym.refresh_rigid_body_state_tensor(self.sim)
 
         # create some wrapper tensors for different slices
         self.root_states = gymtorch.wrap_tensor(actor_root_state)
@@ -442,6 +445,8 @@ class LeggedRobot(BaseTask):
         self.rpy = get_euler_xyz_in_tensor(self.base_quat)
         self.base_pos = self.root_states[:self.num_envs, 0:3]
         self.contact_forces = gymtorch.wrap_tensor(net_contact_forces).view(self.num_envs, -1, 3) # shape: num_envs, num_bodies, xyz axis
+
+        self.rigid_body_states = gymtorch.wrap_tensor(rigid_body_state)
 
         # initialize some data used later on
         self.common_step_counter = 0
@@ -559,6 +564,7 @@ class LeggedRobot(BaseTask):
         self.num_bodies = len(body_names)
         self.num_dofs = len(self.dof_names)
         feet_names = [s for s in body_names if self.cfg.asset.foot_name in s]
+        hip_names = [s for s in self.dof_names if 'hip' in s]
         penalized_contact_names = []
         for name in self.cfg.asset.penalize_contacts_on:
             penalized_contact_names.extend([s for s in body_names if name in s])
@@ -597,6 +603,10 @@ class LeggedRobot(BaseTask):
         self.feet_indices = torch.zeros(len(feet_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(feet_names)):
             self.feet_indices[i] = self.gym.find_actor_rigid_body_handle(self.envs[0], self.actor_handles[0], feet_names[i])
+
+        self.hip_indices = torch.zeros(len(hip_names), dtype=torch.long, device=self.device, requires_grad=False)
+        for i in range(len(hip_names)):
+            self.hip_indices[i] = self.gym.find_actor_dof_handle(self.envs[0], self.actor_handles[0], hip_names[i])
 
         self.penalised_contact_indices = torch.zeros(len(penalized_contact_names), dtype=torch.long, device=self.device, requires_grad=False)
         for i in range(len(penalized_contact_names)):
@@ -648,11 +658,28 @@ class LeggedRobot(BaseTask):
         # Penalize non flat base orientation
         return torch.sum(torch.square(self.projected_gravity[:, :2]), dim=1)
 
+    # def _reward_base_height(self):
+    #     # Penalize base height away from target
+    #     base_height = self.root_states[:, 2]
+    #     return torch.square(base_height - self.cfg.rewards.base_height_target)
+
     def _reward_base_height(self):
         # Penalize base height away from target
-        base_height = self.root_states[:, 2]
-        return torch.square(base_height - self.cfg.rewards.base_height_target)
-    
+        self.gym.refresh_rigid_body_state_tensor(self.sim)  # 这个更新最好在post_step中完成 (开悟比赛无法修改环境, 只能在奖励中完成计算了)
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        if not hasattr(self, 'last_contacts2'):
+            self.last_contacts2 = torch.zeros_like(contact)
+        contact_filt = torch.logical_or(contact, self.last_contacts2)  # (N, 4)
+        self.last_contacts2 = contact
+        feet_pos = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 0:3]
+        num_feet_contact = torch.sum(contact_filt, dim=1, keepdim=True).clamp(min=1.0)  # (N, 1)
+        feet_contact_pos = (feet_pos * contact_filt.unsqueeze(-1)).sum(dim=1) / num_feet_contact  # (N, 3)
+        base_pos = self.root_states[:, 0:3]
+        delta_pos = feet_contact_pos - base_pos
+        base_height = (delta_pos * self.projected_gravity).sum(1)  # (N,)
+        rew = torch.square(base_height - self.cfg.rewards.base_height_target) * (contact_filt.sum(1) > 0)
+        return rew
+
     def _reward_torques(self):
         # Penalize torques
         return torch.sum(torch.square(self.torques), dim=1)
@@ -727,3 +754,61 @@ class LeggedRobot(BaseTask):
     def _reward_feet_contact_forces(self):
         # penalize high contact forces
         return torch.sum((torch.norm(self.contact_forces[:, self.feet_indices, :], dim=-1) -  self.cfg.rewards.max_contact_force).clip(min=0.), dim=1)
+
+    def _reward_action_smoothness(self):
+        # a_t - 2a_{t-1} + a_{t-2}
+        if not hasattr(self, 'last_last_actions'):
+            self.last_last_actions = torch.zeros_like(self.last_actions)
+        rew = torch.sum((self.actions - 2 * self.last_actions + self.last_last_actions).pow(2), dim=1)
+        self.last_last_actions[:] = self.last_actions[:]
+        return rew
+    
+    def _reward_dof_power(self):
+        # Penalize power consumption
+        power = self.torques * self.dof_vel
+        rew = torch.sum(torch.abs(power), dim=1)
+        return rew
+
+    def _get_base_height(self):
+        # 根据接触地面脚得到地面估计高度, 计算垂直于base frame的高度差为base_height
+        self.gym.refresh_rigid_body_state_tensor(self.sim)  # 这个更新最好在post_step中完成 (开悟比赛无法修改环境, 只能在奖励中完成计算了)
+        contact = self.contact_forces[:, self.feet_indices, 2] > 1.
+        if not hasattr(self, 'last_contacts2'):
+            self.last_contacts2 = torch.zeros_like(contact)
+        contact_filt = torch.logical_or(contact, self.last_contacts2)  # (N, 4)
+        self.last_contacts2 = contact
+        feet_pos = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 0:3]
+        num_feet_contact = torch.sum(contact_filt, dim=1, keepdim=True).clamp(min=1.0)  # (N, 1)
+        feet_contact_pos = (feet_pos * contact_filt.unsqueeze(-1)).sum(dim=1) / num_feet_contact  # (N, 3)
+        base_pos = self.root_states[:, 0:3]
+        delta_pos = feet_contact_pos - base_pos
+        base_height = (delta_pos * self.projected_gravity).sum(1)  # (N,)
+        return base_height, contact_filt
+
+    def _reward_correct_base_height(self):
+        base_height, contact_filt = self._get_base_height()
+        rew = torch.square(base_height - self.cfg.rewards.base_height_target) * (contact_filt.sum(1) > 0)  # 当没有接触地面脚时奖励为0
+        return rew
+
+    def _reward_feet_regulation(self):
+        # CTS抬腿正则奖励, 在脚末端速度增大同时, 要求高度尽可能高
+        base_height, contact_filt = self._get_base_height()  # 更新刚体空间位置 (开悟比赛无法修改环境, 只能在奖励中完成计算了)
+        feet_pos = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 0:3]
+        feet_xy_vel = self.rigid_body_states.view(self.num_envs, self.num_bodies, 13)[:, self.feet_indices, 7:9]
+        base_pos = self.root_states[:, 0:3].unsqueeze(1)
+        delta_feet = feet_pos - base_pos
+        feet2base_height = (delta_feet * self.projected_gravity.unsqueeze(1)).sum(-1)  # 脚相对于身体的高度 (N, 4)
+        feet_height = torch.clamp(base_height.unsqueeze(1) - feet2base_height, min=0.0)  # 脚相对于地面的高度 (N, 4)
+        rew = (feet_xy_vel.pow(2).sum(-1) * torch.exp(-feet_height / (0.025 * self.cfg.rewards.base_height_target))).sum(-1) * (contact_filt.sum(1) > 0)
+        return rew
+
+    def _reward_similar_to_default(self):
+        # Penalize joint poses far away from default pose
+        return torch.sum(torch.abs(self.dof_pos - self.default_dof_pos), dim=1)
+
+    def _reward_hip_to_default(self):
+        hip_dof_names = ['FL_hip_joint', 'FR_hip_joint', 'RL_hip_joint', 'RR_hip_joint']
+        hip_dof_indices = [0, 3, 6, 9]
+        hip_pos = self.dof_pos[:, hip_dof_indices]
+        default_hip_pos = self.default_dof_pos[:, hip_dof_indices]
+        return torch.sum(torch.abs(hip_pos - default_hip_pos), dim=1)

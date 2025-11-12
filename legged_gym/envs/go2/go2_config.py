@@ -68,11 +68,48 @@ class GO2RoughCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.34
-        class scales( LeggedRobotCfg.rewards.scales ):
-            torques = -0.0002
-            dof_pos_limits = -10.0
-            feet_air_time = 2.0
+        base_height_target = 0.3
+        only_positive_rewards = False
+        class scales:
+            # tracking_lin_vel = 1.0
+            # tracking_ang_vel = 0.2
+            # lin_vel_z = -10.0
+            # base_height = -50.0
+            # action_rate = -0.005
+            # similar_to_default = -0.1
+            # dof_power = -1e-3  # 能够明显抑制跳跃
+            # dof_acc = -3e-7
+
+
+            tracking_lin_vel = 1.0
+            tracking_ang_vel = 0.5
+            lin_vel_z = -2.0
+            ang_vel_xy = -0.05
+            dof_acc = -2.5e-7
+            dof_power = -1e-3  # 能够明显抑制跳跃
+            # torques = -1e-4  # 无用会走着走着倒了
+            correct_base_height = -10.0
+            action_rate = -0.01
+            action_smoothness = -0.01
+            collision = -1.0
+            dof_pos_limits = -2.0
+            feet_regulation = -0.05
+            hip_to_default = -0.1
+            # similar_to_default = -0.05
+
+            # flat好奖励
+            # tracking_lin_vel = 1.0
+            # tracking_ang_vel = 0.5
+            # lin_vel_z = -2.0
+            # ang_vel_xy = -0.05
+            # dof_acc = -2.5e-7
+            # dof_power = -1e-3  # 能够明显抑制跳跃
+            # correct_base_height = -10.0
+            # action_rate = -0.01
+            # action_smoothness = -0.01
+
+    class noise( LeggedRobotCfg.noise ):
+        add_noise = True
 
 class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
