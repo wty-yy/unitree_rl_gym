@@ -45,6 +45,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
         decimation = 4
     
     class terrain(LeggedRobotCfg.terrain):
+        max_init_terrain_level = 5
         # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
         # terrain_proportions = [0.2, 0.1, 0.1, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0]
         terrain_proportions = [0.4, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]

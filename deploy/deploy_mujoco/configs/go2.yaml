@@ -1,7 +1,7 @@
 # policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/go2/policy_1.pt"
 # policy_path: "{LEGGED_GYM_ROOT_DIR}/deploy/pre_train/go2/policy_1_flat_1500_beauty.pt"
 # policy_path: "/home/yy/Coding/GitHub/kaiwu2025_rob_final/rob_finals/sim2real/models/kaiwu_v2-5-flat5_2500.pt"
-policy_path: "/home/yy/Coding/GitHub/kaiwu2025_rob_final/rob_finals/sim2real/models/kaiwu_v2-5-flat4_6516_beauty.pt"
+policy_path: "/home/yy/Coding/robotics/unitree_rl_gym/logs/rough_go2/exported/policies/policy.pt"
 # policy_path: "/home/yy/Coding/GitHub/kaiwu2025_rob_final/rob_finals/sim2real/models/kaiwu_v2-5-flat4_3500.pt"
 xml_path: "{LEGGED_GYM_ROOT_DIR}/resources/robots/go2/scene.xml"
 

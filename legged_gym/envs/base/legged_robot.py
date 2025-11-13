@@ -163,6 +163,10 @@ class LeggedRobot(BaseTask):
         """
         if len(env_ids) == 0:
             return
+
+        # update terrain curriculum before reset root states
+        if self.cfg.terrain.curriculum:
+            self._update_terrain_curriculum(env_ids)
         
         # reset robot states
         self._reset_dofs(env_ids)
@@ -185,8 +189,6 @@ class LeggedRobot(BaseTask):
             self.extras["episode"]['terrain_level'] = torch.mean(self.terrain_levels[env_ids].float())
         else:
             self.extras["episode"]['terrain_level'] = 0.0
-        if self.cfg.terrain.curriculum:
-            self._update_terrain_curriculum(env_ids)
         for key in self.episode_sums.keys():
             self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
             self.episode_sums[key][env_ids] = 0.

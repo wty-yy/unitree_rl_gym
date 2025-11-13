@@ -6,7 +6,8 @@ from legged_gym import LEGGED_GYM_ROOT_DIR
 
 import isaacgym
 from legged_gym.envs import *
-from legged_gym.utils import  get_args, export_policy_as_jit, task_registry, Logger
+from legged_gym.utils import  get_args, task_registry, Logger
+from legged_gym.utils.exporter import export_policy_as_jit, export_policy_as_onnx
 
 import numpy as np
 import torch
@@ -36,14 +37,15 @@ def play(args):
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
         export_policy_as_jit(ppo_runner.alg.actor_critic, path)
-        print('Exported policy as jit script to: ', path)
+        export_policy_as_onnx(ppo_runner.alg.actor_critic, path)
+        print('Exported policy as jit script / onnx to: ', path)
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
 
         if FIX_COMMAND:
-            env.commands[:, 0] = 0.0
-            env.commands[:, 1] = 1.0
+            env.commands[:, 0] = 1.0
+            env.commands[:, 1] = 0.0
             env.commands[:, 2] = 0.0
 
         obs, _, rews, dones, infos = env.step(actions.detach())
