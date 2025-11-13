@@ -43,9 +43,8 @@ def play(args):
 
         if FIX_COMMAND:
             env.commands[:, 0] = 0.0
-            env.commands[:, 1] = 0.5
+            env.commands[:, 1] = 1.0
             env.commands[:, 2] = 0.0
-            # env.commands[:, 3] = 0.
 
         obs, _, rews, dones, infos = env.step(actions.detach())
 
