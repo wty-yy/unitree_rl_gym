@@ -48,8 +48,8 @@ class GO2Cfg( LeggedRobotCfg ):
     class terrain(LeggedRobotCfg.terrain):
         max_init_terrain_level = 5
         # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
-        # terrain_proportions = [0.2, 0.1, 0.1, 0.05, 0.3, 0.25, 0.0, 0.0, 0.0]
-        terrain_proportions = [0.4, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        terrain_proportions = [0.2, 0.1, 0.1, 0.05, 0.3, 0.25, 0.0, 0.0, 0.0]
+        # terrain_proportions = [0.4, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         # terrain_proportions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         
     class commands:
@@ -133,6 +133,6 @@ class GO2CfgPPO( LeggedRobotCfgPPO ):
 class GO2CfgCTS( LeggedRobotCfgCTS ):
     class runner( LeggedRobotCfgCTS.runner ):
         run_name = ''
-        experiment_name = 'go2_cts_debug'
+        experiment_name = 'go2_cts'
         max_iterations = 30000
         save_interval = 500
