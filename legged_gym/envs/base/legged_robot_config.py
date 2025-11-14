@@ -217,3 +217,50 @@ class LeggedRobotCfgPPO(BaseConfig):
         load_run = -1 # -1 = last run
         checkpoint = -1 # -1 = last saved model
         resume_path = None # updated from load_run and chkpt
+
+class LeggedRobotCfgCTS(BaseConfig):
+    seed = 0
+    runner_class_name = "OnPolicyRunnerCTS"
+    history_length = 5
+    class policy:
+        init_noise_std = 1.0
+        actor_hidden_dims = [512, 256, 128]
+        critic_hidden_dims = [512, 256, 128]
+        teacher_encoder_hidden_dims = [512, 256]
+        student_encoder_hidden_dims = [512, 256]
+        activation = 'elu' # can be elu, relu, selu, crelu, lrelu, tanh, sigmoid
+        latent_dim = 32
+    
+    class algorithm:
+        # training params
+        value_loss_coef = 1.0
+        use_clipped_value_loss = True
+        clip_param = 0.2
+        entropy_coef = 0.01
+        num_learning_epochs = 5
+        num_mini_batches = 4 # mini batch size = num_envs*nsteps / nminibatches
+        learning_rate = 1.e-3 #5.e-4
+        student_encoder_learning_rate = 1e-3
+        schedule = 'adaptive' # could be adaptive, fixed
+        gamma = 0.99
+        lam = 0.95
+        desired_kl = 0.01
+        max_grad_norm = 1.
+        teacher_env_ratio = 0.75  # percentage of envs assigned to teacher
+        # teacher_env_ratio = 1.00  # percentage of envs assigned to teacher
+
+    class runner:
+        policy_class_name = 'ActorCriticCTS'
+        algorithm_class_name = 'CTS'
+        num_steps_per_env = 24 # per iteration
+        max_iterations = 1500 # number of policy updates
+
+        # logging
+        save_interval = 50  # check for potential saves every this many iterations
+        experiment_name = 'test'
+        run_name = ''
+        # load and resume
+        resume = False
+        load_run = -1 # -1 = last run
+        checkpoint = -1 # -1 = last saved model
+        resume_path = None # updated from load_run and chkpt

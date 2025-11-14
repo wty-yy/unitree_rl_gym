@@ -1,6 +1,6 @@
-from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO
+from legged_gym.envs.base.legged_robot_config import LeggedRobotCfg, LeggedRobotCfgPPO, LeggedRobotCfgCTS
 
-class GO2RoughCfg( LeggedRobotCfg ):
+class GO2Cfg( LeggedRobotCfg ):
     class init_state( LeggedRobotCfg.init_state ):
         pos = [0.0, 0.0, 0.42] # x,y,z [m]
         default_joint_angles = { # = target angles [rad] when action = 0.0
@@ -20,6 +20,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
             'RR_calf_joint': -1.5,    # [rad]
         }
     class env(LeggedRobotCfg.env):
+        num_envs = 8192
         num_observations = 45
         # obs(45) + base_lin_vel(3) + height_measurements(187)
         num_privileged_obs = 45 + 3 + 187  # 235
@@ -47,7 +48,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
     class terrain(LeggedRobotCfg.terrain):
         max_init_terrain_level = 5
         # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
-        # terrain_proportions = [0.2, 0.1, 0.1, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0]
+        # terrain_proportions = [0.2, 0.1, 0.1, 0.05, 0.3, 0.25, 0.0, 0.0, 0.0]
         terrain_proportions = [0.4, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
         # terrain_proportions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         
@@ -73,7 +74,7 @@ class GO2RoughCfg( LeggedRobotCfg ):
   
     class rewards( LeggedRobotCfg.rewards ):
         soft_dof_pos_limit = 0.9
-        base_height_target = 0.35
+        base_height_target = 0.38
         only_positive_rewards = False
         curriculum_rewards = [
             {'reward_name': 'lin_vel_z', 'start_iter': 0, 'end_iter': 1500, 'start_value': 1.0, 'end_value': 0.0},
@@ -120,11 +121,18 @@ class GO2RoughCfg( LeggedRobotCfg ):
     class noise( LeggedRobotCfg.noise ):
         add_noise = True
 
-class GO2RoughCfgPPO( LeggedRobotCfgPPO ):
+class GO2CfgPPO( LeggedRobotCfgPPO ):
     class algorithm( LeggedRobotCfgPPO.algorithm ):
         entropy_coef = 0.01
     class runner( LeggedRobotCfgPPO.runner ):
         run_name = ''
-        experiment_name = 'rough_go2'
+        experiment_name = 'go2_ppo'
+        max_iterations = 30000
+        save_interval = 500
+
+class GO2CfgCTS( LeggedRobotCfgCTS ):
+    class runner( LeggedRobotCfgCTS.runner ):
+        run_name = ''
+        experiment_name = 'go2_cts_debug'
         max_iterations = 30000
         save_interval = 500

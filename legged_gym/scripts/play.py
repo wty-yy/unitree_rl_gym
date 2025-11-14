@@ -30,22 +30,26 @@ def play(args):
     obs = env.get_observations()
     # load policy
     train_cfg.runner.resume = True
-    ppo_runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
-    policy = ppo_runner.get_inference_policy(device=env.device)
+    runner, train_cfg = task_registry.make_alg_runner(env=env, name=args.task, args=args, train_cfg=train_cfg)
+    policy = runner.get_inference_policy(device=env.device)
     
     # export policy as a jit module (used to run it from C++)
     if EXPORT_POLICY:
         path = os.path.join(LEGGED_GYM_ROOT_DIR, 'logs', train_cfg.runner.experiment_name, 'exported', 'policies')
-        export_policy_as_jit(ppo_runner.alg.actor_critic, path)
-        export_policy_as_onnx(ppo_runner.alg.actor_critic, path)
+        if hasattr(runner.alg, 'actor_critic'):
+            model = runner.alg.actor_critic
+        else:
+            model = runner.alg.model
+        export_policy_as_jit(model, path)
+        export_policy_as_onnx(model, path)
         print('Exported policy as jit script / onnx to: ', path)
 
     for i in range(10*int(env.max_episode_length)):
         actions = policy(obs.detach())
 
         if FIX_COMMAND:
-            env.commands[:, 0] = 1.0
-            env.commands[:, 1] = 0.0
+            env.commands[:, 0] = 0.0
+            env.commands[:, 1] = 0.8
             env.commands[:, 2] = 0.0
 
         obs, _, rews, dones, infos = env.step(actions.detach())
