@@ -54,7 +54,7 @@ class _TorchPolicyExporter(torch.nn.Module):
         # copy policy parameters
         if hasattr(policy, "student_encoder"):
             self.student_encoder = copy.deepcopy(policy.student_encoder)
-            self.history = torch.zeros_like(policy.history)
+            self.history = torch.zeros([1, policy.history.shape[1], policy.history.shape[2]], device='cpu')
             self.forward = self.forward_cts
         if hasattr(policy, "actor"):
             self.actor = copy.deepcopy(policy.actor)
@@ -92,7 +92,8 @@ class _TorchPolicyExporter(torch.nn.Module):
     
     def forward_cts(self, x):  # x is single observations
         x = self.normalizer(x)
-        latent = self.student_encoder(x)
+        self.history = torch.cat([self.history[:, 1:], x.unsqueeze(1)], dim=1)
+        latent = self.student_encoder(self.history.flatten(1))
         x = torch.cat([latent, x], dim=1)
         return self.actor(x)
 
