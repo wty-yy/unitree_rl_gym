@@ -28,12 +28,28 @@ class GO2Cfg( LeggedRobotCfg ):
 
     class domain_rand(LeggedRobotCfg.domain_rand):
         randomize_friction = True
-        friction_range = [0.1, 1.25]
+        friction_range = [0.2, 1.25]
+
         randomize_base_mass = True
-        added_mass_range = [-1., 3.]
+        added_mass_range = [-1., 1.]
+
         push_robots = True
-        push_interval_s = 5
-        max_push_vel_xy = 1.5
+        push_interval_s = 4
+        max_push_vel_xy = 0.4
+        max_push_ang_vel = 0.6
+
+        randomize_link_mass = True
+        multiplied_link_mass_range = [0.9, 1.1]
+
+        randomize_base_com = True
+        added_base_com_range = [-0.03, 0.03]
+
+        randomize_pd_gains = True
+        stiffness_multiplier_range = [0.9, 1.1]  
+        damping_multiplier_range = [0.9, 1.1]    
+
+        randomize_motor_zero_offset = True
+        motor_zero_offset_range = [-0.035, 0.035]
 
     class control(LeggedRobotCfg.control):
         # PD Drive parameters:
@@ -48,19 +64,19 @@ class GO2Cfg( LeggedRobotCfg ):
     class terrain(LeggedRobotCfg.terrain):
         max_init_terrain_level = 5
         # wave, slope, rough_slope, stairs down, stairs up, obstacles, stepping_stones, gap, flat]
-        terrain_proportions = [0.2, 0.1, 0.1, 0.05, 0.3, 0.25, 0.0, 0.0, 0.0]
-        # terrain_proportions = [0.4, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]
+        terrain_proportions = [0.2, 0.05, 0.05, 0.05, 0.3, 0.25, 0.0, 0.0, 0.1]
+        # terrain_proportions = [0.3, 0.3, 0.3, 0.0, 0.0, 0.0, 0.0, 0.0, 0.1]
         # terrain_proportions = [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.0]
         
     class commands:
         curriculum = False
         max_curriculum = 1.
         num_commands = 4 # default: lin_vel_x, lin_vel_y, ang_vel_yaw (in heading mode ang_vel_yaw is recomputed from heading error)
-        resampling_time = 30. # time before command are changed[s]
-        heading_command = True # if true: compute ang vel command from heading error
+        resampling_time = 10. # time before command are changed[s]
+        heading_command = False # if true: compute ang vel command from heading error
         class ranges:
             lin_vel_x = [-1.0, 1.0] # min max [m/s]
-            lin_vel_y = [-0.5, 0.5]   # min max [m/s]
+            lin_vel_y = [-1.0, 1.0]   # min max [m/s]
             ang_vel_yaw = [-1, 1]    # min max [rad/s]
             heading = [-3.14, 3.14]
         
@@ -78,8 +94,8 @@ class GO2Cfg( LeggedRobotCfg ):
         only_positive_rewards = False
         curriculum_rewards = [
             {'reward_name': 'lin_vel_z', 'start_iter': 0, 'end_iter': 1500, 'start_value': 1.0, 'end_value': 0.0},
-            {'reward_name': 'correct_base_height', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
-            {'reward_name': 'dof_power', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
+            # {'reward_name': 'correct_base_height', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
+            # {'reward_name': 'dof_power', 'start_iter': 0, 'end_iter': 3000, 'start_value': 1.0, 'end_value': 0.1},
         ]
         class scales:
             # tracking_lin_vel = 1.0

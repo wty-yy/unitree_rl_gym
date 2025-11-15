@@ -92,12 +92,28 @@ class LeggedRobotCfg(BaseConfig):
 
     class domain_rand:
         randomize_friction = True
-        friction_range = [0.5, 1.25]
-        randomize_base_mass = False
+        friction_range = [0.2, 1.25]
+
+        randomize_base_mass = True
         added_mass_range = [-1., 1.]
+
         push_robots = True
-        push_interval_s = 15
-        max_push_vel_xy = 1.
+        push_interval_s = 4
+        max_push_vel_xy = 0.4
+        max_push_ang_vel = 0.6
+
+        randomize_link_mass = True
+        multiplied_link_mass_range = [0.9, 1.1]
+
+        randomize_base_com = True
+        added_base_com_range = [-0.03, 0.03]
+
+        randomize_pd_gains = True
+        stiffness_multiplier_range = [0.9, 1.1]  
+        damping_multiplier_range = [0.9, 1.1]    
+
+        randomize_motor_zero_offset = True
+        motor_zero_offset_range = [-0.035, 0.035]
 
     class rewards:
         class scales:
@@ -134,7 +150,7 @@ class LeggedRobotCfg(BaseConfig):
             ang_vel = 0.25
             dof_pos = 1.0
             dof_vel = 0.05
-            height_measurements = 5.0
+            height_measurements = 2.5
         clip_observations = 100.
         clip_actions = 100.
 

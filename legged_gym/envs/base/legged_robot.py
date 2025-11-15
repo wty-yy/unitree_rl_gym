@@ -318,6 +318,15 @@ class LeggedRobot(BaseTask):
                 r = self.dof_pos_limits[i, 1] - self.dof_pos_limits[i, 0]
                 self.dof_pos_limits[i, 0] = m - 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
                 self.dof_pos_limits[i, 1] = m + 0.5 * r * self.cfg.rewards.soft_dof_pos_limit
+        
+        # randomization of the motor zero calibration for real machine
+        if self.cfg.domain_rand.randomize_motor_zero_offset:
+            self.motor_zero_offsets[env_id, :] = torch_rand_float(self.cfg.domain_rand.motor_zero_offset_range[0], self.cfg.domain_rand.motor_zero_offset_range[1], (1,self.num_actions), device=self.device)
+        
+        # randomization of the motor pd gains
+        if self.cfg.domain_rand.randomize_pd_gains:
+            self.p_gains_multiplier[env_id, :] = torch_rand_float(self.cfg.domain_rand.stiffness_multiplier_range[0], self.cfg.domain_rand.stiffness_multiplier_range[1], (1,self.num_actions), device=self.device)
+            self.d_gains_multiplier[env_id, :] =  torch_rand_float(self.cfg.domain_rand.damping_multiplier_range[0], self.cfg.domain_rand.damping_multiplier_range[1], (1,self.num_actions), device=self.device)   
         return props
 
     def _process_rigid_body_props(self, props, env_id):
@@ -331,6 +340,18 @@ class LeggedRobot(BaseTask):
         if self.cfg.domain_rand.randomize_base_mass:
             rng = self.cfg.domain_rand.added_mass_range
             props[0].mass += np.random.uniform(rng[0], rng[1])
+
+        # randomize link masses
+        if self.cfg.domain_rand.randomize_link_mass:
+            self.multiplied_link_masses_ratio = torch_rand_float(self.cfg.domain_rand.multiplied_link_mass_range[0], self.cfg.domain_rand.multiplied_link_mass_range[1], (1, self.num_bodies-1), device=self.device)
+            for i in range(1, len(props)):
+                props[i].mass *= self.multiplied_link_masses_ratio[0,i-1]
+
+        # randomize base com
+        if self.cfg.domain_rand.randomize_base_com:
+            self.added_base_com = torch_rand_float(self.cfg.domain_rand.added_base_com_range[0], self.cfg.domain_rand.added_base_com_range[1], (1, 3), device=self.device)
+            props[0].com += gymapi.Vec3(self.added_base_com[0, 0], self.added_base_com[0, 1],
+                                    self.added_base_com[0, 2])
         return props
     
     def _post_physics_step_callback(self):
@@ -377,10 +398,12 @@ class LeggedRobot(BaseTask):
         #pd controller
         actions_scaled = actions * self.cfg.control.action_scale
         control_type = self.cfg.control.control_type
+        p_gains = self.p_gains * self.p_gains_multiplier
+        d_gains = self.d_gains * self.d_gains_multiplier
         if control_type=="P":
-            torques = self.p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos) - self.d_gains*self.dof_vel
+            torques = p_gains*(actions_scaled + self.default_dof_pos - self.dof_pos + self.motor_zero_offsets) - d_gains*self.dof_vel
         elif control_type=="V":
-            torques = self.p_gains*(actions_scaled - self.dof_vel) - self.d_gains*(self.dof_vel - self.last_dof_vel)/self.sim_params.dt
+            torques = p_gains*(actions_scaled - self.dof_vel) - d_gains*(self.dof_vel - self.last_dof_vel)/self.sim_params.dt
         elif control_type=="T":
             torques = actions_scaled
         else:
@@ -432,7 +455,9 @@ class LeggedRobot(BaseTask):
         if len(push_env_ids) == 0:
             return
         max_vel = self.cfg.domain_rand.max_push_vel_xy
+        max_push_ang = self.cfg.domain_rand.max_push_ang_vel
         self.root_states[:, 7:9] = torch_rand_float(-max_vel, max_vel, (self.num_envs, 2), device=self.device) # lin vel x/y
+        self.root_states[:, 10:13] = torch_rand_float(-max_push_ang, max_push_ang, (self.num_envs, 3), device=self.device) # ang vel x/y/z
         
         env_ids_int32 = push_env_ids.to(dtype=torch.int32)
         self.gym.set_actor_root_state_tensor_indexed(self.sim,
@@ -505,8 +530,8 @@ class LeggedRobot(BaseTask):
             self.height_points = self._init_height_points()
             x_points = self.height_points[0, :, 0]
             y_points = self.height_points[0, :, 1]
-            x_mask = (x_points >= -0.35) & (x_points <= 0.35)  # 0.7m length
-            y_mask = (y_points >= -0.25) & (y_points <= 0.25)  # 0.5m width
+            x_mask = (x_points >= -0.2) & (x_points <= 0.2)  # 0.4m length
+            y_mask = (y_points >= -0.15) & (y_points <= 0.15)  # 0.3m width
             self.base_height_scan_mask = (x_mask & y_mask).float()
             self.num_base_height_scan_points = self.base_height_scan_mask.sum()
             assert self.num_base_height_scan_points > 0, "No height scan points within the specified area."
@@ -641,6 +666,11 @@ class LeggedRobot(BaseTask):
         start_pose = gymapi.Transform()
         start_pose.p = gymapi.Vec3(*self.base_init_state[:3])
 
+        # domain rand
+        self.motor_zero_offsets = torch.zeros(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.p_gains_multiplier = torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+        self.d_gains_multiplier = torch.ones(self.num_envs, self.num_actions, dtype=torch.float, device=self.device, requires_grad=False)
+
         self._get_env_origins()
         env_lower = gymapi.Vec3(0., 0., 0.)
         env_upper = gymapi.Vec3(0., 0., 0.)
@@ -770,7 +800,7 @@ class LeggedRobot(BaseTask):
             env_ids (List[int]): ids of environments being reset
         """
         # Implement Terrain curriculum
-        if not self.init_done:
+        if not self.init_done or self.cfg.terrain.mesh_type == 'plane':
             # don't change on initial reset
             return
         distance = torch.norm(self.root_states[env_ids, :2] - self.env_origins[env_ids, :2], dim=1)
@@ -862,7 +892,6 @@ class LeggedRobot(BaseTask):
 
     def _reward_base_height(self):
         # Penalize base height away from target
-        self.gym.refresh_rigid_body_state_tensor(self.sim)  # 这个更新最好在post_step中完成 (开悟比赛无法修改环境, 只能在奖励中完成计算了)
         contact = self.contact_forces[:, self.feet_indices, 2] > 1.
         if not hasattr(self, 'last_contacts2'):
             self.last_contacts2 = torch.zeros_like(contact)

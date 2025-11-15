@@ -1,10 +1,16 @@
 # 20251115
 ## v0.1.3
 1. 修改`terrain_level`计算方法, 取当前全部环境等级取平均
-2. 使用`heading_command`, 能够更稳定的提升环境等级, 并可以采样到更多的角速度指令
+2. 仍然不使用`heading_command`, 虽然能够更稳定的提升环境等级, 并可以采样到更多的角速度指令, 但是无法以一个恒定的角速度进行移动, 和实际操作中不符
 3. 修复`torch.jit`导出问题
 4. 分别记录每个地形的奖励
 5. 加载训练模型时, 支持环境奖励系数课程加载
+6. 参考[yusongmin1-My_unitree_go2_gym](https://github.com/yusongmin1/My_unitree_go2_gym)加入域随机化`randomize_link_mass, randomize_base_com, randomize_pd_gains, randomize_motor_zero_offset`, 降低base_mass的最大值`3->1`, 降低`push_robots`xy方向速度`1.0->0.4`, 加入角速度推力`0.6`, 增大摩擦最小值`0.1->0.2`
+7. 修改范围`lin_vel_y: 0.5->1.0`, 修改命令采样时间`resampling_time: 30->10`
+8. 修改`base_height`计算使用的点云范围, 长宽`0.7x0.5->0.4x0.3`
+9. 修改`wave, stairs`训练配置, 其中都加入`0.1`的平地
+10. 关闭对`correct_base_height, dof_power`奖励的课程降低
+11. 修改obs中`height_measurements`系数`5 -> 2.5`
 # 20251114
 ## v0.1.2
 1. 解决CTS`rollout_storage_cts.py`中学生教授数据采样混乱的问题
