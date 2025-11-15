@@ -1,3 +1,4 @@
+from collections import defaultdict
 import numpy as np
 from numpy.random import choice
 from scipy import interpolate
@@ -26,6 +27,7 @@ class Terrain:
         self.border = int(cfg.border_size/self.cfg.horizontal_scale)
         self.tot_cols = int(cfg.num_cols * self.width_per_env_pixels) + 2 * self.border
         self.tot_rows = int(cfg.num_rows * self.length_per_env_pixels) + 2 * self.border
+        self.name2cols = defaultdict(set)  # terrain type to column index
 
         self.height_field_raw = np.zeros((self.tot_rows , self.tot_cols), dtype=np.int16)
         if cfg.curriculum:
@@ -59,6 +61,7 @@ class Terrain:
                 choice = j / self.cfg.num_cols + 0.001
 
                 terrain = self.make_terrain(choice, difficulty)
+                self.name2cols[terrain.terrain_name].add(j)
                 self.add_terrain_to_map(terrain, i, j)
 
     def selected_terrain(self):
@@ -92,29 +95,38 @@ class Terrain:
         amplitude = 0.1 + 0.2 * difficulty
         
         if choice < self.proportions[0]:
+            terrain.terrain_name = "wave"
             terrain_utils.wave_terrain(terrain, num_waves=5, amplitude=amplitude)
             terrain_utils.random_uniform_terrain(terrain, min_height=-0.05, max_height=0.05, step=0.005, downsampled_scale=0.2)
         elif choice < self.proportions[1]:  # 平滑坡
+            terrain.terrain_name = "slope"
             if choice < (self.proportions[0] + self.proportions[1])/ 2:  # 一半正坡, 一半负坡
                 slope *= -1
             terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=3.)
         elif choice < self.proportions[2]:  # 粗糙坡
+            terrain.terrain_name = "rough_slope"
             terrain_utils.pyramid_sloped_terrain(terrain, slope=slope, platform_size=3.)
             terrain_utils.random_uniform_terrain(terrain, min_height=-0.05, max_height=0.05, step=0.005, downsampled_scale=0.2)
-        elif choice < self.proportions[4]:  # 上楼梯
-            if choice<self.proportions[3]:  # 下楼梯
+        elif choice < self.proportions[4]:  # 下楼梯
+            terrain.terrain_name = "stairs_down"
+            if choice<self.proportions[3]:  # 上楼梯
+                terrain.terrain_name = "stairs_up"
                 step_height *= -1
             terrain_utils.pyramid_stairs_terrain(terrain, step_width=0.31, step_height=step_height, platform_size=3.)
         elif choice < self.proportions[5]:  # 障碍物
+            terrain.terrain_name = "obstacles"
             num_rectangles = 20
             rectangle_min_size = 1.
             rectangle_max_size = 2.
             terrain_utils.discrete_obstacles_terrain(terrain, discrete_obstacles_height, rectangle_min_size, rectangle_max_size, num_rectangles, platform_size=3.)
         elif choice < self.proportions[6]:  # 梅花桩
+            terrain.terrain_name = "stepping_stones"
             terrain_utils.stepping_stones_terrain(terrain, stone_size=stepping_stones_size, stone_distance=stone_distance, max_height=0., platform_size=4.)
         elif choice < self.proportions[7]:  # 间隙
+            terrain.terrain_name = "gap"
             gap_terrain(terrain, gap_size=gap_size, platform_size=3.)
         else:  # 平地
+            terrain.terrain_name = "flat"
             pit_terrain(terrain, depth=0.0, platform_size=4.)
         
         return terrain

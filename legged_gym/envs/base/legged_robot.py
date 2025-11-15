@@ -186,9 +186,13 @@ class LeggedRobot(BaseTask):
         # fill extras
         self.extras["episode"] = {}
         if self.cfg.terrain.mesh_type in ["heightfield", "trimesh"]:
-            self.extras["episode"]['terrain_level'] = torch.mean(self.terrain_levels.float())
+            self.extras["episode"]['terrain_level_all'] = torch.mean(self.terrain_levels.float())
+            for name, cols in self.terrain.name2cols.items():
+                if isinstance(cols, set):
+                    cols = self.terrain.name2cols[name] = torch.tensor(list(cols), device=self.device)
+                self.extras["episode"]['terrain_level_' + name] = torch.mean(self.terrain_levels[torch.isin(self.terrain_types, cols)].float())
         else:
-            self.extras["episode"]['terrain_level'] = 0.0
+            self.extras["episode"]['terrain_level_all'] = 0.0
         for key in self.episode_sums.keys():
             self.extras["episode"]['rew_' + key] = torch.mean(self.episode_sums[key][env_ids]) / self.max_episode_length_s
             self.episode_sums[key][env_ids] = 0.
